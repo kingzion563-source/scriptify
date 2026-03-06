@@ -1,0 +1,85 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        page: "var(--bg-page)",
+        surface: "var(--bg-surface)",
+        "surface-2": "var(--bg-surface-2)",
+        "surface-3": "var(--bg-surface-3)",
+        code: "var(--bg-code)",
+        navbar: "var(--bg-navbar)",
+        sidebar: "var(--bg-sidebar)",
+        border: "var(--border)",
+        "border-strong": "var(--border-strong)",
+        "border-code": "var(--border-code)",
+        primary: "var(--text-primary)",
+        secondary: "var(--text-secondary)",
+        muted: "var(--text-muted)",
+        inverse: "var(--text-inverse)",
+        "text-code": "var(--text-code)",
+        link: "var(--text-link)",
+        accent: "var(--accent)",
+        "accent-text": "var(--accent-text)",
+        "accent-hover": "var(--accent-hover)",
+        "status-verified": "var(--status-verified)",
+        "status-patched": "var(--status-patched)",
+        "status-testing": "var(--status-testing)",
+        "status-bg-verified": "var(--status-bg-verified)",
+        "status-bg-patched": "var(--status-bg-patched)",
+        "status-bg-testing": "var(--status-bg-testing)",
+        "pro-gold": "var(--pro-gold)",
+        "pro-gold-bg": "var(--pro-gold-bg)",
+        "stripe-purple": "var(--stripe-purple)",
+      },
+      spacing: {
+        "1": "var(--space-1)",
+        "2": "var(--space-2)",
+        "3": "var(--space-3)",
+        "4": "var(--space-4)",
+        "5": "var(--space-5)",
+        "6": "var(--space-6)",
+        "8": "var(--space-8)",
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+      },
+      fontFamily: {
+        sans: ["var(--font-space-grotesk)", "system-ui", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
+      },
+      fontSize: {
+        "2xs": "10px",
+        xs: "11px",
+        sm: "12px",
+        base: "13px",
+        md: "14px",
+        lg: "16px",
+        xl: "20px",
+        "2xl": "26px",
+        "3xl": "36px",
+      },
+      transitionDuration: {
+        "100": "100ms",
+        "150": "150ms",
+        "180": "180ms",
+        "220": "220ms",
+        "260": "260ms",
+      },
+      transitionTimingFunction: {
+        smooth: "cubic-bezier(0.16, 1, 0.3, 1)",
+      },
+    },
+  },
+  plugins: [],
+};
+
+export default config;

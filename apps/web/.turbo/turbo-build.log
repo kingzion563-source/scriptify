@@ -1,0 +1,25 @@
+
+> @scriptify/web@0.1.0 build /Users/zionking/scriptify pro/apps/web
+> next build
+
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+request to https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap failed, reason: getaddrinfo ENOTFOUND fonts.googleapis.com
+
+Retrying 1/3...
+request to https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap failed, reason: getaddrinfo ENOTFOUND fonts.googleapis.com
+
+Retrying 1/3...
+request to https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap failed, reason: getaddrinfo ENOTFOUND fonts.googleapis.com
+
+Retrying 2/3...
+request to https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap failed, reason: getaddrinfo ENOTFOUND fonts.googleapis.com
+
+Retrying 2/3...
+request to https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap failed, reason: getaddrinfo ENOTFOUND fonts.googleapis.com
+
+Retrying 3/3...
+request to https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap failed, reason: getaddrinfo ENOTFOUND fonts.googleapis.com
+
+Retrying 3/3...

@@ -1,0 +1,24 @@
+
+> @scriptify/api@0.1.0 build /Users/zionking/scriptify pro/apps/api
+> tsc
+
+src/lib/notificationsQueue.ts(7,17): error TS2709: Cannot use namespace 'IORedis' as a type.
+src/lib/notificationsQueue.ts(10,27): error TS2709: Cannot use namespace 'IORedis' as a type.
+src/lib/notificationsQueue.ts(15,22): error TS2351: This expression is not constructable.
+  Type 'typeof import("/Users/zionking/scriptify pro/node_modules/.pnpm/ioredis@5.10.0/node_modules/ioredis/built/index")' has no construct signatures.
+src/lib/xpQueue.ts(7,17): error TS2709: Cannot use namespace 'IORedis' as a type.
+src/lib/xpQueue.ts(10,27): error TS2709: Cannot use namespace 'IORedis' as a type.
+src/lib/xpQueue.ts(16,22): error TS2351: This expression is not constructable.
+  Type 'typeof import("/Users/zionking/scriptify pro/node_modules/.pnpm/ioredis@5.10.0/node_modules/ioredis/built/index")' has no construct signatures.
+src/routes/mod/index.ts(113,57): error TS2339: Property 'name' does not exist on type '{}'.
+src/routes/mod/index.ts(114,57): error TS2339: Property 'slug' does not exist on type '{}'.
+src/routes/mod/index.ts(115,44): error TS18046: 'script.status' is of type 'unknown'.
+src/routes/mod/index.ts(121,21): error TS18046: 'script.tags' is of type 'unknown'.
+src/routes/payments/index.ts(16,28): error TS2322: Type '"2025-02-24.acacia"' is not assignable to type '"2026-02-25.clover"'.
+src/workers/notificationsWorker.ts(11,27): error TS2709: Cannot use namespace 'IORedis' as a type.
+src/workers/notificationsWorker.ts(14,14): error TS2351: This expression is not constructable.
+  Type 'typeof import("/Users/zionking/scriptify pro/node_modules/.pnpm/ioredis@5.10.0/node_modules/ioredis/built/index")' has no construct signatures.
+src/workers/xpWorker.ts(12,27): error TS2709: Cannot use namespace 'IORedis' as a type.
+src/workers/xpWorker.ts(16,14): error TS2351: This expression is not constructable.
+  Type 'typeof import("/Users/zionking/scriptify pro/node_modules/.pnpm/ioredis@5.10.0/node_modules/ioredis/built/index")' has no construct signatures.
+ ELIFECYCLE  Command failed with exit code 2.

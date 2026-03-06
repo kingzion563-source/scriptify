@@ -1,0 +1,347 @@
+// Scriptify — Prisma schema
+// Database: PostgreSQL (Supabase)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  USER
+  MOD
+  ADMIN
+  DEV
+}
+
+enum ScriptStatus {
+  VERIFIED
+  PATCHED
+  TESTING
+}
+
+enum Platform {
+  PC
+  MOBILE
+  BOTH
+}
+
+enum VoteTarget {
+  SCRIPT
+  COMMENT
+}
+
+enum ReportTarget {
+  SCRIPT
+  COMMENT
+}
+
+enum ReportReason {
+  MALWARE
+  STOLEN
+  BROKEN
+  SPAM
+  NSFW
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum FollowType {
+  USER
+  GAME
+}
+
+enum NotificationType {
+  COMMENT_ON_SCRIPT
+  REPLY_TO_COMMENT
+  NEW_FOLLOWER
+  SCRIPT_MILESTONE
+  SCRIPT_FEATURED
+  LEVEL_UP
+  SCRIPT_FLAGGED
+  SCRIPT_APPROVED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  username          String    @unique @db.VarChar(30)
+  email             String    @unique
+  passwordHash      String
+  avatarUrl         String?
+  bio               String?   @db.VarChar(200)
+  role              UserRole  @default(USER)
+  xp                Int       @default(0)
+  level             Int       @default(1)
+  isVerified        Boolean   @default(false)
+  isBanned          Boolean   @default(false)
+  banReason         String?
+  isShadowbanned    Boolean   @default(false)
+  isPro             Boolean   @default(false)
+  proExpiresAt      DateTime?
+  monthlyBoostCredits Int     @default(1)
+  stripeCustomerId  String?   @unique
+  discordId         String?   @unique
+  twoFactorEnabled  Boolean   @default(false)
+  trustScore        Int       @default(50)
+  followerCount     Int       @default(0)
+  followingCount    Int       @default(0)
+  createdAt         DateTime  @default(now())
+  lastActiveAt      DateTime  @default(now())
+  scripts           Script[]
+  comments          Comment[]
+  votes             Vote[]
+  reports           Report[]  @relation("ReporterReports")
+  notifications     Notification[]
+  refreshTokens     RefreshToken[]
+  follows           Follow[]  @relation("Follower")
+  collections       Collection[]
+  modActions        ModAuditLog[]
+  emailVerificationTokens EmailVerificationToken[]
+  bookmarks         Bookmark[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Script {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String         @db.VarChar(80)
+  description      String?        @db.Text
+  coverUrl         String?
+  rawCode          String         @db.Text
+  status           ScriptStatus   @default(TESTING)
+  version          String         @default("1.0.0")
+  platform         Platform       @default(BOTH)
+  executorCompat   Json           @default("[]")
+  viewCount        Int            @default(0)
+  copyCount        Int            @default(0)
+  likeCount        Int            @default(0)
+  dislikeCount     Int            @default(0)
+  reportCount      Int            @default(0)
+  aiSafetyScore    Int?
+  aiSummary        String?        @db.Text
+  aiFeatures       Json           @default("[]")
+  aiTags           Json           @default("[]")
+  requiresKey      Boolean        @default(false)
+  isTrending       Boolean        @default(false)
+  trendingUntil    DateTime?
+  isFeatured       Boolean        @default(false)
+  isPublished      Boolean        @default(false)
+  authorId         String
+  gameId           String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  lastVerifiedAt   DateTime?
+  author           User           @relation(fields: [authorId], references: [id])
+  game             Game?          @relation(fields: [gameId], references: [id])
+  comments         Comment[]
+  reports          Report[]
+  tags             ScriptTag[]
+  versions         ScriptVersion[]
+  collectionItems  CollectionItem[]
+  bookmarks        Bookmark[]
+}
+
+model ScriptVersion {
+  id          String   @id @default(cuid())
+  scriptId    String
+  version     String
+  changelog   String?  @db.Text
+  rawCode     String   @db.Text
+  authorId    String
+  createdAt   DateTime @default(now())
+  script      Script   @relation(fields: [scriptId], references: [id])
+}
+
+model Game {
+  id                 String   @id @default(cuid())
+  robloxGameId       String   @unique
+  name               String
+  slug               String   @unique
+  thumbnailUrl       String?
+  playerCountCached  Int      @default(0)
+  scriptCount        Int      @default(0)
+  category           String?
+  createdAt          DateTime @default(now())
+  scripts            Script[]
+}
+
+model Comment {
+  id         String    @id @default(cuid())
+  scriptId   String
+  userId     String
+  parentId   String?
+  body       String    @db.VarChar(2000)
+  likeCount   Int       @default(0)
+  dislikeCount Int      @default(0)
+  isEdited   Boolean   @default(false)
+  isDeleted  Boolean   @default(false)
+  isPinned   Boolean   @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  script     Script    @relation(fields: [scriptId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    Comment[] @relation("CommentReplies")
+  reports    Report[]
+}
+
+model Vote {
+  id          String     @id @default(cuid())
+  userId      String
+  targetType  VoteTarget
+  targetId    String
+  value       Int
+  createdAt   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id])
+  @@unique([userId, targetType, targetId])
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  reporterId   String
+  targetType   ReportTarget
+  targetId     String
+  scriptId     String?
+  commentId    String?
+  reason       ReportReason
+  body         String?      @db.VarChar(500)
+  status       ReportStatus @default(PENDING)
+  reviewedById String?
+  createdAt    DateTime     @default(now())
+  reporter     User         @relation("ReporterReports", fields: [reporterId], references: [id])
+  script       Script?      @relation(fields: [scriptId], references: [id])
+  comment      Comment?     @relation(fields: [commentId], references: [id])
+}
+
+model ModAuditLog {
+  id          String   @id @default(cuid())
+  moderatorId String
+  action      String   @db.VarChar(60)
+  targetType  String   @db.VarChar(20)
+  targetId    String
+  details     String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+  moderator   User     @relation(fields: [moderatorId], references: [id])
+}
+
+model Tag {
+  id         String      @id @default(cuid())
+  name       String      @unique @db.VarChar(30)
+  slug       String      @unique
+  usageCount Int         @default(0)
+  scripts    ScriptTag[]
+}
+
+model ScriptTag {
+  scriptId   String
+  tagId      String
+  script     Script @relation(fields: [scriptId], references: [id])
+  tag        Tag    @relation(fields: [tagId], references: [id])
+  @@id([scriptId, tagId])
+}
+
+model Follow {
+  id           String     @id @default(cuid())
+  followerId   String
+  targetType   FollowType
+  targetId     String
+  createdAt    DateTime   @default(now())
+  follower     User       @relation("Follower", fields: [followerId], references: [id])
+  @@unique([followerId, targetType, targetId])
+}
+
+model Collection {
+  id          String           @id @default(cuid())
+  userId      String
+  title       String           @db.VarChar(80)
+  description String?          @db.VarChar(300)
+  isPublic    Boolean          @default(true)
+  scriptCount Int              @default(0)
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id])
+  items       CollectionItem[]
+}
+
+model CollectionItem {
+  id           String     @id @default(cuid())
+  collectionId String
+  scriptId     String
+  sortOrder    Int        @default(0)
+  addedAt      DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id])
+  script       Script     @relation(fields: [scriptId], references: [id])
+  @@unique([collectionId, scriptId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  actorId     String?
+  targetType  String?
+  targetId    String?
+  targetUrl   String?
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  family    String
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  scriptId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  script    Script   @relation(fields: [scriptId], references: [id])
+  @@unique([userId, scriptId])
+}
+
+model AiScanLog {
+  id            String   @id @default(cuid())
+  scriptId      String
+  safetyScore  Int
+  resultJson    Json
+  flagged       Boolean  @default(false)
+  flaggedReason String?
+  scannedAt     DateTime @default(now())
+}
