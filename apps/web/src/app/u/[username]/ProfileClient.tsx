@@ -144,8 +144,8 @@ export function ProfileClient({ initialProfile }: { initialProfile: Profile }) {
             user: {
               ...s.user,
               followingCount: profile.isFollowing
-                ? s.user.followingCount - 1
-                : s.user.followingCount + 1,
+                ? (s.user.followingCount ?? 0) - 1
+                : (s.user.followingCount ?? 0) + 1,
             },
           }
         : s
@@ -171,8 +171,8 @@ export function ProfileClient({ initialProfile }: { initialProfile: Profile }) {
               user: {
                 ...s.user,
                 followingCount: profile.isFollowing
-                  ? s.user.followingCount + 1
-                  : s.user.followingCount - 1,
+                  ? (s.user.followingCount ?? 0) + 1
+                  : (s.user.followingCount ?? 0) - 1,
               },
             }
           : s
