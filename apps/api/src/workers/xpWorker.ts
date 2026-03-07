@@ -76,7 +76,7 @@ export async function startXpWorker(): Promise<void> {
         await broadcastNewNotification(userId);
       }
     },
-    { connection, concurrency: 5 }
+    { connection: connection as any, concurrency: 5 }
   );
   worker.on("error", () => {});
 

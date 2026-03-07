@@ -14,7 +14,7 @@ function getConnection(): RedisType | null {
   if (!url || (!url.startsWith("redis://") && !url.startsWith("rediss://"))) return null;
   try {
     connection = new Redis(url, { maxRetriesPerRequest: null });
-    connection.on("error", () => {});
+    if (connection) connection.on("error", () => {});
   } catch {
     connection = null;
   }
