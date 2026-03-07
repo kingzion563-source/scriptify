@@ -121,7 +121,7 @@ export default function PublishForm() {
         const data = await apiFetch<unknown[]>(
           `/api/v1/games?q=${encodeURIComponent(gameSearch)}`
         );
-        if (!cancelled && Array.isArray(data)) setGames(data);
+        if (!cancelled && Array.isArray(data)) setGames(data as any);
       } catch {
         if (!cancelled) setGames([]);
       }
