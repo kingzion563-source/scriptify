@@ -141,7 +141,7 @@ export default function PublishForm() {
         const data = await apiFetch<unknown[]>(
           `/api/v1/tags?q=${encodeURIComponent(tagInput)}`
         );
-        if (!cancelled && Array.isArray(data)) setTagSuggestions(data);
+        if (!cancelled && Array.isArray(data)) setTagSuggestions(data as any);
       } catch {
         if (!cancelled) setTagSuggestions([]);
       }
