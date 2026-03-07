@@ -1,5 +1,6 @@
 import { Worker } from "bullmq";
-import Redis from "ioredis";
+import { Redis as RedisType } from "ioredis";
+const Redis = require("ioredis");
 import prisma from "../lib/prisma.js";
 import { getEnvOptional } from "../config.js";
 import { XP_QUEUE, getXpAmount, type XpJobPayload } from "../lib/xpQueue.js";
@@ -7,7 +8,7 @@ import { getLevelFromXp } from "../lib/xpLevels.js";
 import { addNotificationJob } from "../lib/notificationsQueue.js";
 import { broadcastNewNotification } from "../lib/realtimeBroadcast.js";
 
-function getConnection(): Redis | null {
+function getConnection(): RedisType | null {
   const url = getEnvOptional("REDIS_URL");
   if (!url || (!url.startsWith("redis://") && !url.startsWith("rediss://")))
     return null;

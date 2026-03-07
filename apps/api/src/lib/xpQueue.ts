@@ -1,13 +1,14 @@
 import { Queue } from "bullmq";
-import Redis from "ioredis";
+import { Redis as RedisType } from "ioredis";
+const Redis = require("ioredis");
 import { getEnvOptional } from "../config.js";
 
 const XP_QUEUE = "scriptify:xp";
 
-let connection: Redis | null = null;
+let connection: RedisType | null = null;
 let queue: Queue | null = null;
 
-function getConnection(): Redis | null {
+function getConnection(): RedisType | null {
   if (connection) return connection;
   const url = getEnvOptional("REDIS_URL");
   if (!url || (!url.startsWith("redis://") && !url.startsWith("rediss://")))
