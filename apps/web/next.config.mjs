@@ -31,7 +31,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.supabase.co",
               "font-src 'self'",
-              "connect-src 'self' http://localhost:* https://*.supabase.co https://api.pwnedpasswords.com https://challenges.cloudflare.com",
+              "connect-src 'self' http://localhost:* https://*.supabase.co https://api.pwnedpasswords.com https://challenges.cloudflare.com https://scriptifyapi-production.up.railway.app",
               "frame-src https://challenges.cloudflare.com",
             ].join("; "),
           },
