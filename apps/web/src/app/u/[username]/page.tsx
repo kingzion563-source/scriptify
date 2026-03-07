@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getApiUrl } from "@/lib/api";
-import { ProfileClient } from "./ProfileClient";
+import { ProfileClient, type Profile } from "./ProfileClient";
 
 export const dynamic = "force-dynamic";
 
@@ -58,5 +58,6 @@ export default async function ProfilePage({
     notFound();
   }
 
-  return <ProfileClient initialProfile={profile} />;
+  if (!profile) return notFound();
+  return <ProfileClient initialProfile={profile as Profile} />;
 }

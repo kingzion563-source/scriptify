@@ -12,7 +12,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 type TabId = "scripts" | "liked" | "collections" | "activity";
 
-interface Profile {
+export interface Profile {
   id: string;
   username: string;
   avatarUrl: string | null;
