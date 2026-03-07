@@ -1,13 +1,13 @@
 import { Queue } from "bullmq";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import { getEnvOptional } from "../config.js";
 
 const NOTIFICATIONS_QUEUE = "scriptify:notifications";
 
-let connection: InstanceType<typeof Redis> | null = null;
+let connection: Redis | null = null;
 let queue: Queue | null = null;
 
-function getConnection(): InstanceType<typeof Redis> | null {
+function getConnection(): Redis | null {
   if (connection) return connection;
   const url = getEnvOptional("REDIS_URL");
   if (!url || (!url.startsWith("redis://") && !url.startsWith("rediss://"))) return null;
