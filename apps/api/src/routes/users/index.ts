@@ -43,6 +43,43 @@ function mapScriptToCard(s: {
   };
 }
 
+// GET /api/v1/users/me — current user (for rehydration with Bearer)
+router.get("/me", authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      isPro: true,
+      level: true,
+      avatarUrl: true,
+      followerCount: true,
+      followingCount: true,
+    },
+  });
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const scriptsCount = await prisma.script.count({
+    where: { authorId: userId, isPublished: true },
+  });
+  const totalCopies = await prisma.script.aggregate({
+    where: { authorId: userId, isPublished: true },
+    _sum: { copyCount: true },
+  });
+  res.json({
+    user: {
+      ...user,
+      scriptsCount,
+      totalCopies: totalCopies._sum.copyCount ?? 0,
+    },
+  });
+});
+
 // PATCH /api/v1/users/me — update current user (bio, etc.)
 const patchMeSchema = z.object({
   bio: z.string().max(200).optional().nullable(),

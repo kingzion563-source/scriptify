@@ -11,6 +11,19 @@ export function getApiUrl(path: string): string {
   return `${base}${p}`;
 }
 
+function getStoredAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("scriptify-auth");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { state?: { accessToken?: string | null } };
+    const token = parsed?.state?.accessToken;
+    return token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -20,9 +33,10 @@ export async function apiFetch<T>(
     options.body != null
       ? { "Content-Type": "application/json", Accept: "application/json" }
       : { Accept: "application/json" };
+  const token = getStoredAccessToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(url, {
     ...options,
-    credentials: "include",
     headers: { ...headers, ...(options.headers as Record<string, string>) },
   });
 

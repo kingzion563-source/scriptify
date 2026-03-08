@@ -121,6 +121,8 @@ router.post(
           avatarUrl: user.avatarUrl,
           followingCount: user.followingCount,
         },
+        accessToken,
+        refreshToken,
       });
     } catch (err) {
       console.error("REGISTER ERROR:", err);
@@ -193,6 +195,8 @@ router.post(
           avatarUrl: user.avatarUrl,
           followingCount: user.followingCount,
         },
+        accessToken,
+        refreshToken,
       });
     } catch (err) {
       console.error("LOGIN ERROR:", err);
@@ -212,7 +216,8 @@ router.post("/logout", (req: Request, res: Response): void => {
 // POST /api/v1/auth/refresh — rotating refresh token
 router.post("/refresh", async (req: Request, res: Response): Promise<void> => {
   try {
-    const refreshToken = req.cookies?.[AUTH.REFRESH_COOKIE_NAME];
+    let refreshToken = req.cookies?.[AUTH.REFRESH_COOKIE_NAME];
+    if (!refreshToken && req.body?.refreshToken) refreshToken = req.body.refreshToken;
     if (!refreshToken) {
       clearAuthCookies(res);
       res.status(401).json({ error: "Unauthorized" });
@@ -264,6 +269,8 @@ router.post("/refresh", async (req: Request, res: Response): Promise<void> => {
         avatarUrl: stored.user.avatarUrl,
         followingCount: stored.user.followingCount,
       },
+      accessToken,
+      refreshToken: newRefreshToken,
     });
   } catch {
     clearAuthCookies(res);

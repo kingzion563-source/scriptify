@@ -10,6 +10,7 @@ import { Toast } from "@/components/Toast";
 import { IntroAnimation } from "@/components/IntroAnimation";
 import { SiteFooter } from "@/components/SiteFooter";
 import { QueryProvider } from "@/components/QueryProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -54,6 +55,7 @@ export default function RootLayout({
           </HydrationGate>
           </QueryProvider>
         </MotionConfig>
+        <Analytics />
       </body>
     </html>
   );

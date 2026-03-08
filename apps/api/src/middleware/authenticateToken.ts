@@ -25,7 +25,11 @@ export async function authenticateToken(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const token = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+  let token = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) token = authHeader.slice(7);
+  }
   if (!token) {
     res.status(401).json({ error: "Unauthorized" });
     return;
