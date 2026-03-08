@@ -31,7 +31,7 @@ app.use(
     origin: process.env.WEB_ORIGIN || "http://localhost:3000",
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Accept"],
+    allowedHeaders: ["Content-Type", "Accept", "Authorization"],
   })
 );
 
