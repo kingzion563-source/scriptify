@@ -1,10 +1,11 @@
 import { Response } from "express";
 import { AUTH } from "../config.js";
 
+const isProduction = process.env.NODE_ENV === "production";
 const COOKIE_BASE = {
   httpOnly: true,
-  sameSite: "strict" as const,
-  secure: process.env.NODE_ENV === "production",
+  sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
+  secure: isProduction,
   path: "/",
 };
 

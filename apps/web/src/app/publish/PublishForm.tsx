@@ -80,7 +80,7 @@ export default function PublishForm() {
   const [confirmation, setConfirmation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [aiResult, setAiResult] = useState<null>(null);
+  const [aiResult, setAiResult] = useState<unknown>(null);
   const [aiStreamingText, setAiStreamingText] = useState<string>("");
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [submitDisabled, setSubmitDisabled] = useState<boolean>(false);
@@ -198,10 +198,11 @@ export default function PublishForm() {
             headers: uploadHeaders,
             body: form,
           });
-          const uploadData = await uploadRes.json();
           if (!uploadRes.ok) {
-            throw new Error(uploadData.error ?? "Cover upload failed");
+            const err = await uploadRes.json().catch(() => ({})) as { error?: string; message?: string };
+            throw new Error(err.error || err.message || "Cover upload failed");
           }
+          const uploadData = await uploadRes.json() as { url: string };
           coverUrl = uploadData.url;
         }
 

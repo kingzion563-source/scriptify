@@ -45,7 +45,7 @@ export const useAuthStore = create<AuthState>()(
 
       setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
 
-      clearAuth: () => set({ user: null, accessToken: null, refreshToken: null }),
+      clearAuth: () => set({ user: null, accessToken: null, refreshToken: null, isHydrated: true }),
 
       login: async (email, password, rememberMe) => {
         const data = await apiFetch<{

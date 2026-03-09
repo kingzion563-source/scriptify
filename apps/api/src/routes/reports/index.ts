@@ -104,17 +104,10 @@ router.post(
     });
 
     if (targetType === "SCRIPT") {
-      const updated = await prisma.script.update({
+      await prisma.script.update({
         where: { id: targetId },
         data: { reportCount: { increment: 1 } },
-        select: { reportCount: true },
       });
-      if (updated.reportCount >= 3) {
-        await prisma.script.update({
-          where: { id: targetId },
-          data: { isPublished: false },
-        });
-      }
     }
 
     res.status(201).json({ report });

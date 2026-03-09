@@ -70,6 +70,9 @@ router.post(
           res.status(400).json({ error: "Turnstile verification failed" });
           return;
         }
+      } else if (process.env.TURNSTILE_SECRET_KEY && !turnstileToken) {
+        res.status(400).json({ error: "Turnstile token required" });
+        return;
       }
 
       const existing = await prisma.user.findFirst({
@@ -341,8 +344,7 @@ router.post(
           data: { userId: user.id, token: resetToken, expiresAt },
         });
         res.status(200).json({
-          message: "Password reset requested.",
-          token: resetToken,
+          message: "If an account exists with this email, you will receive a reset link.",
         });
         return;
       }

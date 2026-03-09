@@ -11,6 +11,18 @@ const VALID_SORTS: Record<string, string> = {
   "ai-score": "aiSafetyScore:desc",
 };
 
+const VALID_STATUSES = new Set(["VERIFIED", "TESTING", "FLAGGED", "REMOVED"]);
+const VALID_PLATFORMS = new Set(["PC", "MOBILE", "BOTH"]);
+const VALID_EXECUTORS = new Set([
+  "Synapse Z", "Wave", "Solara", "Fluxus", "Delta",
+  "Krnl", "Xeno", "Arceus X", "Hydrogen", "Codex",
+]);
+
+function sanitizeFilterString(value: string): string {
+  // Remove characters that could break Meilisearch filter syntax
+  return value.replace(/["'\\]/g, "");
+}
+
 type SearchHit = {
   id: string;
   slug: string;
@@ -53,17 +65,28 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
   const meili = getMeiliClient();
   if (meili && q.trim()) {
     const filter: string[] = ['isPublished = true'];
-    if (game) filter.push(`gameSlug = "${game}"`);
+    if (game) {
+      const safeGame = sanitizeFilterString(game);
+      if (safeGame) filter.push(`gameSlug = "${safeGame}"`);
+    }
     if (status) {
-      const statuses = status.split(",").map((s) => `status = "${s.toUpperCase()}"`);
-      filter.push(`(${statuses.join(" OR ")})`);
+      const statuses = status.split(",")
+        .map((s) => s.toUpperCase())
+        .filter((s) => VALID_STATUSES.has(s))
+        .map((s) => `status = "${s}"`);
+      if (statuses.length > 0) filter.push(`(${statuses.join(" OR ")})`);
     }
     if (executor) {
-      const execs = executor.split(",").map((e) => `executorCompat = "${e}"`);
-      filter.push(`(${execs.join(" OR ")})`);
+      const execs = executor.split(",")
+        .filter((e) => VALID_EXECUTORS.has(e.trim()))
+        .map((e) => `executorCompat = "${e.trim()}"`);
+      if (execs.length > 0) filter.push(`(${execs.join(" OR ")})`);
     }
-    if (platform) filter.push(`platform = "${platform.toUpperCase()}"`);
-    if (tag) filter.push(`tags = "${tag}"`);
+    if (platform) {
+      const safePlatform = platform.toUpperCase();
+      if (VALID_PLATFORMS.has(safePlatform)) filter.push(`platform = "${safePlatform}"`);
+    }
+    if (tag) filter.push(`tags = "${sanitizeFilterString(tag)}"`);
     if (hasAiSummary) filter.push("hasAiSummary = true");
     if (noKeyRequired) filter.push("requiresKey = false");
 
@@ -152,77 +175,87 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
   }
 
   // Prisma fallback (no Meilisearch or empty query)
-  const where: Record<string, unknown> = { isPublished: true };
-  if (q.trim()) {
-    where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { description: { contains: q, mode: "insensitive" } },
-    ];
+  try {
+    const where: Record<string, unknown> = { isPublished: true };
+    if (q.trim()) {
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    if (game) where.game = { slug: sanitizeFilterString(game) };
+    if (tag) where.tags = { some: { tag: { slug: tag } } };
+    if (status) {
+      const safeStatuses = status.split(",").map((s) => s.toUpperCase()).filter((s) => VALID_STATUSES.has(s));
+      if (safeStatuses.length > 0) where.status = { in: safeStatuses };
+    }
+    if (platform) {
+      const safePlatform = platform.toUpperCase();
+      if (VALID_PLATFORMS.has(safePlatform)) where.platform = safePlatform;
+    }
+    if (hasAiSummary) where.aiSummary = { not: null };
+    if (noKeyRequired) where.requiresKey = false;
+
+    const orderBy: Record<string, string> = {};
+    switch (sort) {
+      case "most-copied": orderBy.copyCount = "desc"; break;
+      case "top-rated": orderBy.likeCount = "desc"; break;
+      case "ai-score": orderBy.aiSafetyScore = "desc"; break;
+      default: orderBy.createdAt = "desc"; break;
+    }
+
+    const [scripts, total] = await Promise.all([
+      prisma.script.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          coverUrl: true,
+          status: true,
+          likeCount: true,
+          viewCount: true,
+          copyCount: true,
+          aiSafetyScore: true,
+          isTrending: true,
+          createdAt: true,
+          author: { select: { username: true, avatarUrl: true, isPro: true } },
+          game: { select: { name: true, slug: true } },
+          tags: { select: { tag: { select: { name: true } } } },
+        },
+      }),
+      prisma.script.count({ where }),
+    ]);
+
+    const hits: SearchHit[] = scripts.map((s: typeof scripts[number]) => ({
+      id: s.id,
+      slug: s.slug,
+      title: s.title,
+      coverUrl: s.coverUrl,
+      gameName: s.game?.name ?? null,
+      gameSlug: s.game?.slug ?? null,
+      authorUsername: s.author.username,
+      authorAvatar: s.author.avatarUrl,
+      status: s.status,
+      likeCount: s.likeCount,
+      viewCount: s.viewCount,
+      copyCount: s.copyCount,
+      tags: s.tags.map((st: { tag: { name: string } }) => st.tag.name),
+      aiScore: s.aiSafetyScore,
+      isAuthorPro: s.author.isPro,
+      isTrending: s.isTrending,
+      createdAt: s.createdAt,
+    }));
+
+    res.json({ hits, total, page, limit });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
-  if (game) where.game = { slug: game };
-  if (tag) where.tags = { some: { tag: { slug: tag } } };
-  if (status) {
-    where.status = { in: status.split(",").map((s) => s.toUpperCase()) };
-  }
-  if (platform) where.platform = platform.toUpperCase();
-  if (hasAiSummary) where.aiSummary = { not: null };
-  if (noKeyRequired) where.requiresKey = false;
-
-  const orderBy: Record<string, string> = {};
-  switch (sort) {
-    case "most-copied": orderBy.copyCount = "desc"; break;
-    case "top-rated": orderBy.likeCount = "desc"; break;
-    case "ai-score": orderBy.aiSafetyScore = "desc"; break;
-    default: orderBy.createdAt = "desc"; break;
-  }
-
-  const [scripts, total] = await Promise.all([
-    prisma.script.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        coverUrl: true,
-        status: true,
-        likeCount: true,
-        viewCount: true,
-        copyCount: true,
-        aiSafetyScore: true,
-        isTrending: true,
-        createdAt: true,
-        author: { select: { username: true, avatarUrl: true, isPro: true } },
-        game: { select: { name: true, slug: true } },
-        tags: { select: { tag: { select: { name: true } } } },
-      },
-    }),
-    prisma.script.count({ where }),
-  ]);
-
-  const hits: SearchHit[] = scripts.map((s: typeof scripts[number]) => ({
-    id: s.id,
-    slug: s.slug,
-    title: s.title,
-    coverUrl: s.coverUrl,
-    gameName: s.game?.name ?? null,
-    gameSlug: s.game?.slug ?? null,
-    authorUsername: s.author.username,
-    authorAvatar: s.author.avatarUrl,
-    status: s.status,
-    likeCount: s.likeCount,
-    viewCount: s.viewCount,
-    copyCount: s.copyCount,
-    tags: s.tags.map((st: { tag: { name: string } }) => st.tag.name),
-    aiScore: s.aiSafetyScore,
-    isAuthorPro: s.author.isPro,
-    isTrending: s.isTrending,
-    createdAt: s.createdAt,
-  }));
-
-  res.json({ hits, total, page, limit });
 });
 
 // GET /api/v1/search/suggestions?q=
@@ -233,66 +266,72 @@ router.get("/suggestions", async (req: Request, res: Response): Promise<void> =>
     return;
   }
 
-  const meili = getMeiliClient();
-  if (meili) {
-    try {
-      const index = meili.index(SCRIPTS_INDEX);
-      const result = await index.search(q, {
-        limit: 8,
-        attributesToRetrieve: [
-          "id", "slug", "title", "coverUrl", "status",
-          "gameName", "gameSlug",
-        ],
-      });
-      const scripts = result.hits.slice(0, 5);
-      // Separate games query
-      const gameHits = await prisma.game.findMany({
+  try {
+    const meili = getMeiliClient();
+    if (meili) {
+      try {
+        const index = meili.index(SCRIPTS_INDEX);
+        const result = await index.search(q, {
+          limit: 8,
+          attributesToRetrieve: [
+            "id", "slug", "title", "coverUrl", "status",
+            "gameName", "gameSlug",
+          ],
+        });
+        const scripts = result.hits.slice(0, 5);
+        // Separate games query
+        const gameHits = await prisma.game.findMany({
+          where: { name: { contains: q, mode: "insensitive" } },
+          take: 3,
+          select: { id: true, name: true, slug: true, thumbnailUrl: true, scriptCount: true },
+        });
+        res.json({ scripts, games: gameHits });
+        return;
+      } catch {
+        // Fall through to Prisma
+      }
+    }
+
+    // Prisma fallback
+    const [scripts, games] = await Promise.all([
+      prisma.script.findMany({
+        where: {
+          isPublished: true,
+          title: { contains: q, mode: "insensitive" },
+        },
+        take: 5,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          coverUrl: true,
+          status: true,
+          game: { select: { name: true, slug: true } },
+        },
+      }),
+      prisma.game.findMany({
         where: { name: { contains: q, mode: "insensitive" } },
         take: 3,
         select: { id: true, name: true, slug: true, thumbnailUrl: true, scriptCount: true },
-      });
-      res.json({ scripts, games: gameHits });
-      return;
-    } catch {
-      // Fall through
+      }),
+    ]);
+
+    const mapped = scripts.map((s: typeof scripts[number]) => ({
+      id: s.id,
+      slug: s.slug,
+      title: s.title,
+      coverUrl: s.coverUrl,
+      status: s.status,
+      gameName: s.game?.name ?? null,
+      gameSlug: s.game?.slug ?? null,
+    }));
+
+    res.json({ scripts: mapped, games });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
     }
   }
-
-  // Prisma fallback
-  const [scripts, games] = await Promise.all([
-    prisma.script.findMany({
-      where: {
-        isPublished: true,
-        title: { contains: q, mode: "insensitive" },
-      },
-      take: 5,
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        coverUrl: true,
-        status: true,
-        game: { select: { name: true, slug: true } },
-      },
-    }),
-    prisma.game.findMany({
-      where: { name: { contains: q, mode: "insensitive" } },
-      take: 3,
-      select: { id: true, name: true, slug: true, thumbnailUrl: true, scriptCount: true },
-    }),
-  ]);
-
-  const mapped = scripts.map((s: typeof scripts[number]) => ({
-    id: s.id,
-    slug: s.slug,
-    title: s.title,
-    coverUrl: s.coverUrl,
-    status: s.status,
-    gameName: s.game?.name ?? null,
-    gameSlug: s.game?.slug ?? null,
-  }));
-
-  res.json({ scripts: mapped, games });
 });
 
 export default router;

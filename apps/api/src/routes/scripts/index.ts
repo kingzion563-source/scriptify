@@ -59,12 +59,14 @@ function slugify(text: string): string {
 async function ensureUniqueSlug(baseSlug: string): Promise<string> {
   let slug = baseSlug;
   let n = 0;
-  while (true) {
+  while (n < 100) {
     const existing = await prisma.script.findUnique({ where: { slug } });
     if (!existing) return slug;
     n += 1;
     slug = `${baseSlug}-${n}`;
   }
+  // Fallback: append random suffix to guarantee uniqueness
+  return `${baseSlug}-${Date.now()}`;
 }
 
 const createScriptBodySchema = z.object({
@@ -90,7 +92,7 @@ const createScriptBodySchema = z.object({
     errorMap: () => ({ message: "You must confirm the script is safe" }),
   }),
   turnstileToken: z.string().optional(),
-  coverUrl: z.string().optional().nullable(),
+  coverUrl: z.string().url().optional().nullable(),
 });
 
 // ─── POST /api/v1/scripts ─────────────────────────────────────────────────────
@@ -522,71 +524,83 @@ router.post(
 // Returns full script detail: author, game, tags, executor compat, versions,
 // comment count, related scripts, and the requesting user's vote (if authed).
 router.get("/sitemap", async (_req: Request, res: Response): Promise<void> => {
-  const scripts = await prisma.script.findMany({
-    where: { isPublished: true },
-    select: { slug: true, updatedAt: true },
-    orderBy: { updatedAt: "desc" },
-    take: 10000,
-  });
-  res.json({ scripts });
+  try {
+    const scripts = await prisma.script.findMany({
+      where: { isPublished: true },
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 10000,
+    });
+    res.json({ scripts });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
 });
 
 // ─── GET /api/v1/scripts?gameSlug=&page=&limit= ─────────────────────────────
 // List published scripts with optional game filter and pagination.
 router.get("/", async (req: Request, res: Response): Promise<void> => {
-  const gameSlug = req.query.gameSlug as string | undefined;
-  const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string, 10) || 12));
+  try {
+    const gameSlug = req.query.gameSlug as string | undefined;
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string, 10) || 12));
 
-  const where: Record<string, unknown> = { isPublished: true };
-  if (gameSlug && gameSlug.trim()) {
-    where.game = { slug: gameSlug.trim() };
+    const where: Record<string, unknown> = { isPublished: true };
+    if (gameSlug && gameSlug.trim()) {
+      where.game = { slug: gameSlug.trim() };
+    }
+
+    const [scripts, total] = await Promise.all([
+      prisma.script.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          coverUrl: true,
+          status: true,
+          likeCount: true,
+          viewCount: true,
+          copyCount: true,
+          aiSafetyScore: true,
+          author: { select: { username: true, avatarUrl: true, isPro: true } },
+          game: { select: { name: true, slug: true } },
+          tags: { select: { tag: { select: { name: true } } } },
+        },
+      }),
+      prisma.script.count({ where }),
+    ]);
+
+    type Row = (typeof scripts)[number];
+    const hits = scripts.map((s: Row) => ({
+      id: s.id,
+      slug: s.slug,
+      title: s.title,
+      coverUrl: s.coverUrl,
+      gameName: s.game?.name ?? null,
+      gameSlug: s.game?.slug ?? null,
+      authorUsername: s.author.username,
+      authorAvatar: s.author.avatarUrl,
+      status: s.status === "TESTING" ? "verified" : s.status.toLowerCase(),
+      likeCount: s.likeCount,
+      viewCount: s.viewCount,
+      copyCount: s.copyCount,
+      tags: s.tags.map((t: { tag: { name: string } }) => t.tag.name),
+      aiScore: s.aiSafetyScore,
+      isAuthorPro: s.author.isPro,
+    }));
+
+    res.json({ hits, total, page, limit });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
-
-  const [scripts, total] = await Promise.all([
-    prisma.script.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        coverUrl: true,
-        status: true,
-        likeCount: true,
-        viewCount: true,
-        copyCount: true,
-        aiSafetyScore: true,
-        author: { select: { username: true, avatarUrl: true, isPro: true } },
-        game: { select: { name: true, slug: true } },
-        tags: { select: { tag: { select: { name: true } } } },
-      },
-    }),
-    prisma.script.count({ where }),
-  ]);
-
-  type Row = (typeof scripts)[number];
-  const hits = scripts.map((s: Row) => ({
-    id: s.id,
-    slug: s.slug,
-    title: s.title,
-    coverUrl: s.coverUrl,
-    gameName: s.game?.name ?? null,
-    gameSlug: s.game?.slug ?? null,
-    authorUsername: s.author.username,
-    authorAvatar: s.author.avatarUrl,
-    status: s.status === "TESTING" ? "verified" : s.status.toLowerCase(),
-    likeCount: s.likeCount,
-    viewCount: s.viewCount,
-    copyCount: s.copyCount,
-    tags: s.tags.map((t: { tag: { name: string } }) => t.tag.name),
-    aiScore: s.aiSafetyScore,
-    isAuthorPro: s.author.isPro,
-  }));
-
-  res.json({ hits, total, page, limit });
 });
 
 // ─── GET /api/v1/scripts/:id/bookmark ───────────────────────────────────────
@@ -845,77 +859,93 @@ router.get("/:slug", async (req: Request, res: Response): Promise<void> => {
 // ─── GET /api/v1/scripts/:id/raw ─────────────────────────────────────────────
 // Returns raw Lua code as text/plain. Checks both Script.id and ScriptVersion.id.
 router.get("/:id/raw", async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  // Try ScriptVersion first (version-specific raw links)
-  const version = await prisma.scriptVersion.findUnique({
-    where: { id },
-    select: { rawCode: true, script: { select: { isPublished: true } } },
-  });
-  if (version && version.script.isPublished) {
+    // Try ScriptVersion first (version-specific raw links)
+    const version = await prisma.scriptVersion.findUnique({
+      where: { id },
+      select: { rawCode: true, script: { select: { isPublished: true } } },
+    });
+    if (version && version.script.isPublished) {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.send(version.rawCode);
+      return;
+    }
+
+    // Fall back to Script.id
+    const script = await prisma.script.findUnique({
+      where: { id, isPublished: true },
+      select: { rawCode: true },
+    });
+    if (!script) {
+      res.status(404).json({ error: "Script not found" });
+      return;
+    }
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.send(version.rawCode);
-    return;
+    res.send(script.rawCode);
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
-
-  // Fall back to Script.id
-  const script = await prisma.script.findUnique({
-    where: { id, isPublished: true },
-    select: { rawCode: true },
-  });
-  if (!script) {
-    res.status(404).json({ error: "Script not found" });
-    return;
-  }
-  res.setHeader("Content-Type", "text/plain; charset=utf-8");
-  res.send(script.rawCode);
 });
 
 // ─── POST /api/v1/scripts/:id/copy ───────────────────────────────────────────
 // Increments copyCount. No auth required. Rate limited: 1 copy per script per IP per 24h (Upstash Redis).
 router.post("/:id/copy", async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const script = await prisma.script.findUnique({
-    where: { id, isPublished: true },
-    select: { id: true, authorId: true, copyCount: true },
-  });
-  if (!script) {
-    res.status(404).json({ error: "Script not found" });
-    return;
-  }
+    const script = await prisma.script.findUnique({
+      where: { id, isPublished: true },
+      select: { id: true, authorId: true, copyCount: true },
+    });
+    if (!script) {
+      res.status(404).json({ error: "Script not found" });
+      return;
+    }
 
-  const redis = getCopyRedis();
-  if (redis) {
-    const ip = getClientIp(req);
-    const hashedIP = createHash("sha256").update(ip).digest("hex");
-    const key = `scriptify:copy:${id}:${hashedIP}`;
-    try {
-      const set = await redis.set(key, "1", { nx: true, ex: COPY_RATE_TTL_SEC });
-      if (!set) {
-        res.status(200).json({ counted: false });
-        return;
+    const redis = getCopyRedis();
+    if (redis) {
+      const ip = getClientIp(req);
+      const hashedIP = createHash("sha256").update(ip).digest("hex");
+      const key = `scriptify:copy:${id}:${hashedIP}`;
+      try {
+        const set = await redis.set(key, "1", { nx: true, ex: COPY_RATE_TTL_SEC });
+        if (!set) {
+          res.status(200).json({ counted: false });
+          return;
+        }
+      } catch {
+        // Redis unavailable: fall back to allowing the increment
       }
-    } catch {
-      // Redis unavailable: fall back to allowing the increment
+    }
+
+    const updated = await prisma.script.update({
+      where: { id },
+      data: { copyCount: { increment: 1 } },
+      select: { copyCount: true },
+    });
+    const newCount = updated.copyCount;
+    if (newCount === 10) {
+      await addXpJob({ eventType: "script_10_copies", userId: script.authorId, scriptId: id });
+    } else if (newCount === 100) {
+      await addXpJob({ eventType: "script_100_copies", userId: script.authorId, scriptId: id });
+    } else if (newCount === 1000) {
+      await addXpJob({ eventType: "script_1000_copies", userId: script.authorId, scriptId: id });
+    }
+
+    res.json({ ok: true });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
     }
   }
+});
 
-  const updated = await prisma.script.update({
-    where: { id },
-    data: { copyCount: { increment: 1 } },
-    select: { copyCount: true },
-  });
-  const newCount = updated.copyCount;
-  if (newCount === 10) {
-    await addXpJob({ eventType: "script_10_copies", userId: script.authorId, scriptId: id });
-  } else if (newCount === 100) {
-    await addXpJob({ eventType: "script_100_copies", userId: script.authorId, scriptId: id });
-  } else if (newCount === 1000) {
-    await addXpJob({ eventType: "script_1000_copies", userId: script.authorId, scriptId: id });
-  }
-
-  res.json({ ok: true });
+const voteBodySchema = z.object({
+  value: z.union([z.literal(1), z.literal(-1), z.literal(0)]),
 });
 
 // ─── POST /api/v1/scripts/:id/vote ───────────────────────────────────────────
@@ -925,13 +955,14 @@ router.post(
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { value } = req.body as { value: number };
     const userId = req.user!.id;
 
-    if (![-1, 0, 1].includes(value)) {
+    const parsedVote = voteBodySchema.safeParse(req.body);
+    if (!parsedVote.success) {
       res.status(400).json({ error: "Invalid vote value. Use -1, 0, or 1." });
       return;
     }
+    const { value } = parsedVote.data;
 
     const script = await prisma.script.findUnique({
       where: { id, isPublished: true },

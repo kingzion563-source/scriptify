@@ -45,75 +45,26 @@ function mapScriptToCard(s: {
 
 // GET /api/v1/users/me — current user (for rehydration with Bearer)
 router.get("/me", authenticateToken, async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user!.id;
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      role: true,
-      isPro: true,
-      level: true,
-      avatarUrl: true,
-      followerCount: true,
-      followingCount: true,
-    },
-  });
-  if (!user) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  const scriptsCount = await prisma.script.count({
-    where: { authorId: userId, isPublished: true },
-  });
-  const totalCopies = await prisma.script.aggregate({
-    where: { authorId: userId, isPublished: true },
-    _sum: { copyCount: true },
-  });
-  res.json({
-    user: {
-      ...user,
-      scriptsCount,
-      totalCopies: totalCopies._sum.copyCount ?? 0,
-    },
-  });
-});
-
-// PATCH /api/v1/users/me — update current user (bio, etc.)
-const patchMeSchema = z.object({
-  bio: z.string().max(200).optional().nullable(),
-});
-
-router.patch(
-  "/me",
-  authenticateToken,
-  async (req: Request, res: Response): Promise<void> => {
+  try {
     const userId = req.user!.id;
-    const parsed = patchMeSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        error: "Validation failed",
-        details: parsed.error.flatten().fieldErrors,
-      });
-      return;
-    }
-    const user = await prisma.user.update({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      data: { bio: parsed.data.bio ?? undefined },
       select: {
         id: true,
         username: true,
         email: true,
-        bio: true,
-        avatarUrl: true,
-        level: true,
-        isPro: true,
         role: true,
+        isPro: true,
+        level: true,
+        avatarUrl: true,
         followerCount: true,
         followingCount: true,
       },
     });
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     const scriptsCount = await prisma.script.count({
       where: { authorId: userId, isPublished: true },
     });
@@ -128,11 +79,73 @@ router.patch(
         totalCopies: totalCopies._sum.copyCount ?? 0,
       },
     });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+});
+
+// PATCH /api/v1/users/me — update current user (bio, etc.)
+const patchMeSchema = z.object({
+  bio: z.string().max(200).optional().nullable(),
+});
+
+router.patch(
+  "/me",
+  authenticateToken,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const parsed = patchMeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error: "Validation failed",
+          details: parsed.error.flatten().fieldErrors,
+        });
+        return;
+      }
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: { bio: parsed.data.bio ?? undefined },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          bio: true,
+          avatarUrl: true,
+          level: true,
+          isPro: true,
+          role: true,
+          followerCount: true,
+          followingCount: true,
+        },
+      });
+      const scriptsCount = await prisma.script.count({
+        where: { authorId: userId, isPublished: true },
+      });
+      const totalCopies = await prisma.script.aggregate({
+        where: { authorId: userId, isPublished: true },
+        _sum: { copyCount: true },
+      });
+      res.json({
+        user: {
+          ...user,
+          scriptsCount,
+          totalCopies: totalCopies._sum.copyCount ?? 0,
+        },
+      });
+    } catch {
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Internal server error" });
+      }
+    }
   }
 );
 
 // GET /api/v1/users/:username/scripts — scripts for profile tabs (must be before /:username)
 router.get("/:username/scripts", async (req: Request, res: Response): Promise<void> => {
+  try {
   const username = (req.params.username ?? "").toLowerCase();
   const tab = (req.query.tab as string) ?? "scripts";
   const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
@@ -172,7 +185,11 @@ router.get("/:username/scripts", async (req: Request, res: Response): Promise<vo
   }
 
   if (tab === "liked") {
-    const accessToken = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+    let accessToken = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+    if (!accessToken) {
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) accessToken = authHeader.slice(7);
+    }
     if (!accessToken) {
       res.json({ scripts: [], total: 0, page: 1, limit });
       return;
@@ -224,7 +241,11 @@ router.get("/:username/scripts", async (req: Request, res: Response): Promise<vo
 
   if (tab === "collections") {
     let viewerId: string | null = null;
-    const accessToken = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+    let accessToken = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+    if (!accessToken) {
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) accessToken = authHeader.slice(7);
+    }
     if (accessToken) {
       try {
         const payload = verifyAccessToken(accessToken);
@@ -309,79 +330,90 @@ router.get("/:username/scripts", async (req: Request, res: Response): Promise<vo
   }
 
   res.status(400).json({ error: "Invalid tab" });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
 });
 
 // GET /api/v1/users/:username — profile by username (public)
 router.get("/:username", async (req: Request, res: Response): Promise<void> => {
-  const username = (req.params.username ?? "").toLowerCase();
-  if (!username) {
-    res.status(400).json({ error: "Username required" });
-    return;
-  }
+  try {
+    const username = (req.params.username ?? "").toLowerCase();
+    if (!username) {
+      res.status(400).json({ error: "Username required" });
+      return;
+    }
 
-  const user = await prisma.user.findUnique({
-    where: { username },
-    select: {
-      id: true,
-      username: true,
-      avatarUrl: true,
-      bio: true,
-      level: true,
-      isPro: true,
-      followerCount: true,
-      followingCount: true,
-      isBanned: true,
-    },
-  });
+    const user = await prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        bio: true,
+        level: true,
+        isPro: true,
+        followerCount: true,
+        followingCount: true,
+        isBanned: true,
+      },
+    });
 
-  if (!user || user.isBanned) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
+    if (!user || user.isBanned) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
 
-  const [scriptsCount, totalCopiesResult] = await Promise.all([
-    prisma.script.count({ where: { authorId: user.id, isPublished: true } }),
-    prisma.script.aggregate({
-      where: { authorId: user.id, isPublished: true },
-      _sum: { copyCount: true },
-    }),
-  ]);
+    const [scriptsCount, totalCopiesResult] = await Promise.all([
+      prisma.script.count({ where: { authorId: user.id, isPublished: true } }),
+      prisma.script.aggregate({
+        where: { authorId: user.id, isPublished: true },
+        _sum: { copyCount: true },
+      }),
+    ]);
 
-  let isFollowing = false;
-  const accessToken = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
-  if (accessToken) {
-    try {
-      const payload = verifyAccessToken(accessToken);
-      if (payload && payload.sub !== user.id) {
-        const follow = await prisma.follow.findUnique({
-          where: {
-            followerId_targetType_targetId: {
-              followerId: payload.sub,
-              targetType: "USER",
-              targetId: user.id,
+    let isFollowing = false;
+    const accessToken = req.cookies?.[AUTH.ACCESS_COOKIE_NAME];
+    if (accessToken) {
+      try {
+        const payload = verifyAccessToken(accessToken);
+        if (payload && payload.sub !== user.id) {
+          const follow = await prisma.follow.findUnique({
+            where: {
+              followerId_targetType_targetId: {
+                followerId: payload.sub,
+                targetType: "USER",
+                targetId: user.id,
+              },
             },
-          },
-        });
-        isFollowing = !!follow;
+          });
+          isFollowing = !!follow;
+        }
+      } catch {
+        //
       }
-    } catch {
-      //
+    }
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio ?? "",
+      level: user.level,
+      isPro: user.isPro,
+      followerCount: user.followerCount,
+      followingCount: user.followingCount,
+      scriptsCount,
+      totalCopies: totalCopiesResult._sum.copyCount ?? 0,
+      isFollowing,
+    });
+  } catch {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
     }
   }
-
-  res.json({
-    id: user.id,
-    username: user.username,
-    avatarUrl: user.avatarUrl,
-    bio: user.bio ?? "",
-    level: user.level,
-    isPro: user.isPro,
-    followerCount: user.followerCount,
-    followingCount: user.followingCount,
-    scriptsCount,
-    totalCopies: totalCopiesResult._sum.copyCount ?? 0,
-    isFollowing,
-  });
 });
 
 // POST /api/v1/users/:id/follow — follow a user (toggle)
@@ -389,6 +421,7 @@ router.post(
   "/:id/follow",
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
+    try {
     const followerId = req.user!.id;
     const targetId = req.params.id;
 
@@ -504,6 +537,11 @@ router.post(
       followerCount: updated.followerCount,
       followingCount: followerUpdated.followingCount,
     });
+    } catch {
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Internal server error" });
+      }
+    }
   }
 );
 
