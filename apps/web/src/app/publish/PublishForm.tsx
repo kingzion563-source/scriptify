@@ -189,9 +189,13 @@ export default function PublishForm() {
         if (coverFile) {
           const form = new FormData();
           form.append("file", coverFile);
+          const uploadHeaders: Record<string, string> = {};
+          const uploadToken = useAuthStore.getState().accessToken;
+          if (uploadToken) uploadHeaders["Authorization"] = `Bearer ${uploadToken}`;
           const uploadRes = await fetch(getApiUrl("/api/v1/uploads/cover"), {
             method: "POST",
             credentials: "include",
+            headers: uploadHeaders,
             body: form,
           });
           const uploadData = await uploadRes.json();
