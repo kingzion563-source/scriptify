@@ -119,10 +119,10 @@ export default function PublishForm() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiFetch<unknown[]>(
+        const data = await apiFetch<Array<{ id: string; name: string; slug: string; thumbnailUrl: string | null; playerCountCached: number }>>(
           `/api/v1/games?q=${encodeURIComponent(gameSearch)}`
         );
-        if (!cancelled && Array.isArray(data)) setGames(data as any);
+        if (!cancelled && Array.isArray(data)) setGames(data);
       } catch {
         if (!cancelled) setGames([]);
       }
@@ -139,10 +139,10 @@ export default function PublishForm() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiFetch<unknown[]>(
+        const data = await apiFetch<Array<{ name: string }>>(
           `/api/v1/tags?q=${encodeURIComponent(tagInput)}`
         );
-        if (!cancelled && Array.isArray(data)) setTagSuggestions(data as any);
+        if (!cancelled && Array.isArray(data)) setTagSuggestions(data);
       } catch {
         if (!cancelled) setTagSuggestions([]);
       }

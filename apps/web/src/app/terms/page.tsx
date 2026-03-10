@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Service — Scriptify",
+  description: "Read the Scriptify terms and conditions.",
+};
+
 export default function TermsPage() {
   const content = `Terms and Conditions
 Welcome to Scriptify!

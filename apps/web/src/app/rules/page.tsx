@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Community Rules — Scriptify",
+  description: "Read the Scriptify community rules and guidelines.",
+};
+
 export default function RulesPage() {
   const content = `Posting any scripts, comments, or reports specifically to flood the website with fake and/or duplicated content.
 Fake, Bait, and Spam content is defined by but not limited to:

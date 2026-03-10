@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy — Scriptify",
+  description: "Learn how Scriptify collects and uses your data.",
+};
+
 export default function PrivacyPage() {
   const content = [
     "Privacy Policy",

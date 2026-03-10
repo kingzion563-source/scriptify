@@ -27,6 +27,15 @@ if (process.env.NODE_ENV === "production" && !process.env.WEB_ORIGIN) {
   throw new Error("WEB_ORIGIN environment variable must be set in production");
 }
 
+// Guard against running with the known example/placeholder JWT secret
+const KNOWN_WEAK_JWT_SECRET = "a8f3d2e1b9c4f7a2d5e8b1c4f7a2d5e8b1c4f7a2d5e8b1c4f7a2d5e8b1c4f7";
+if (process.env.JWT_SECRET === KNOWN_WEAK_JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET is set to the example placeholder value. " +
+    "Generate a real secret with: openssl rand -hex 64"
+  );
+}
+
 initSentry();
 process.on("unhandledRejection", (reason) => {
   Sentry.captureException(reason);

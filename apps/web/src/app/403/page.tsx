@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { ErrorScreen } from "@/components/ErrorScreen";
+
+export const metadata: Metadata = {
+  title: "403 Forbidden — Scriptify",
+};
 
 export default function ForbiddenPage() {
   return (

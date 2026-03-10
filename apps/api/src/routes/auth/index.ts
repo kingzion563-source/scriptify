@@ -17,7 +17,7 @@ import {
 } from "../../auth/refreshToken.js";
 import { rateLimitLogin } from "../../middleware/rateLimit.js";
 import { rateLimitRegister } from "../../middleware/rateLimit.js";
-import { AUTH } from "../../config.js";
+import { AUTH, LIMITS } from "../../config.js";
 import { addXpJob } from "../../lib/xpQueue.js";
 import {
   registerSchema,
@@ -26,6 +26,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
 } from "./schemas.js";
+import { sendPasswordResetEmail } from "../../lib/email.js";
 
 const router = Router();
 
@@ -174,7 +175,7 @@ router.post(
       });
 
       const ACCESS_MAX_AGE_MS = 900 * 1000;
-      const REFRESH_MAX_AGE_MS = rememberMe === true ? 2592000 * 1000 : 604800 * 1000;
+      const REFRESH_MAX_AGE_MS = rememberMe === true ? AUTH.REMEMBER_ME_EXPIRY_MS : AUTH.REFRESH_TOKEN_EXPIRY_MS;
       setAccessCookie(res, accessToken, ACCESS_MAX_AGE_MS);
       setRefreshCookie(res, refreshToken, REFRESH_MAX_AGE_MS);
 
@@ -336,10 +337,15 @@ router.post(
       });
       if (user) {
         const resetToken = crypto.randomBytes(32).toString("hex");
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + LIMITS.PASSWORD_RESET_EXPIRY_MS);
         await prisma.passwordResetToken.create({
           data: { userId: user.id, token: resetToken, expiresAt },
         });
+        try {
+          await sendPasswordResetEmail(user.email, resetToken);
+        } catch (emailErr) {
+          console.error("Failed to send password reset email:", emailErr);
+        }
         res.status(200).json({
           message: "If an account exists with this email, you will receive a reset link.",
         });
