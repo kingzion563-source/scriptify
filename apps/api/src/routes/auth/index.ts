@@ -95,7 +95,7 @@ router.post(
           username: username.toLowerCase(),
           email: email,
           passwordHash,
-          isVerified: false,
+          isVerified: true,
         },
       });
 
