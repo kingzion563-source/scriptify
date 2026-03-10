@@ -34,6 +34,13 @@ function getClientIp(req: Request): string {
 
 const router = Router();
 
+const STATUS_MAP: Record<string, string> = {
+  VERIFIED: "verified",
+  TESTING: "verified",
+  FLAGGED: "flagged",
+  REMOVED: "removed",
+};
+
 const EXECUTOR_NAMES = [
   "Synapse Z",
   "Wave",
@@ -148,6 +155,17 @@ router.post(
       data.executorCompat === "auto"
         ? []
         : data.executorCompat;
+
+    if (data.gameId) {
+      const gameExists = await prisma.game.findUnique({
+        where: { id: data.gameId },
+        select: { id: true },
+      });
+      if (!gameExists) {
+        res.status(400).json({ error: "Game not found" });
+        return;
+      }
+    }
 
     const baseSlug = slugify(data.title);
     const slug = await ensureUniqueSlug(baseSlug);
@@ -312,8 +330,8 @@ router.get("/:id/comments", async (req: Request, res: Response): Promise<void> =
         });
         votes.forEach((v: { targetId: string; value: number }) => userVotes.set(v.targetId, v.value));
       }
-    } catch {
-      //
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -586,7 +604,7 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
       gameSlug: s.game?.slug ?? null,
       authorUsername: s.author.username,
       authorAvatar: s.author.avatarUrl,
-      status: s.status === "TESTING" ? "verified" : s.status.toLowerCase(),
+      status: STATUS_MAP[s.status] ?? s.status.toLowerCase(),
       likeCount: s.likeCount,
       viewCount: s.viewCount,
       copyCount: s.copyCount,
@@ -734,7 +752,7 @@ router.get("/:slug", async (req: Request, res: Response): Promise<void> => {
   if (shouldIncrementView) {
     prisma.script
       .update({ where: { id: script.id }, data: { viewCount: { increment: 1 } } })
-      .catch(() => {});
+      .catch((err) => { console.error("View count update failed:", err); });
   }
 
   // Resolve requesting user's vote (optional auth via cookie)
@@ -808,7 +826,7 @@ router.get("/:slug", async (req: Request, res: Response): Promise<void> => {
     description: script.description,
     coverUrl: script.coverUrl,
     rawCode: script.rawCode,
-    status: (script.status === "TESTING" ? "verified" : script.status.toLowerCase()),
+    status: STATUS_MAP[script.status] ?? script.status.toLowerCase(),
     version: script.version,
     platform: script.platform,
     executorCompat: script.executorCompat,
@@ -840,7 +858,7 @@ router.get("/:slug", async (req: Request, res: Response): Promise<void> => {
       slug: s.slug,
       title: s.title,
       coverUrl: s.coverUrl,
-      status: (s.status === "TESTING" ? "verified" : s.status.toLowerCase()),
+      status: STATUS_MAP[s.status] ?? s.status.toLowerCase(),
       likeCount: s.likeCount,
       viewCount: s.viewCount,
       copyCount: s.copyCount,

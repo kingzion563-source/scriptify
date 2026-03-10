@@ -114,6 +114,12 @@ export const useAuthStore = create<AuthState>()(
         }
       },
     }),
-    { name: "scriptify-auth" }
+    {
+      name: "scriptify-auth",
+      partialize: (state) => ({
+        user: state.user,
+        isHydrated: state.isHydrated,
+      }),
+    }
   )
 );

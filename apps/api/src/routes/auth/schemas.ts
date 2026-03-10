@@ -4,7 +4,12 @@ const registerSchema = z
   .object({
     username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
     email: z.string().email(),
-    password: z.string().min(8),
+    password: z
+      .string()
+      .min(8)
+      .refine((pw) => /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw), {
+        message: "Password must contain at least one letter and one number",
+      }),
     confirmPassword: z.string().min(8),
     turnstileToken: z.string().optional(),
   })

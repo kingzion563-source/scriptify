@@ -18,6 +18,15 @@ import { initSentry, Sentry } from "./lib/sentry.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
+
+if (process.env.NODE_ENV === "production" && !process.env.PORT) {
+  console.warn("WARNING: PORT env var not set, defaulting to 4000");
+}
+
+if (process.env.NODE_ENV === "production" && !process.env.WEB_ORIGIN) {
+  throw new Error("WEB_ORIGIN environment variable must be set in production");
+}
+
 initSentry();
 process.on("unhandledRejection", (reason) => {
   Sentry.captureException(reason);

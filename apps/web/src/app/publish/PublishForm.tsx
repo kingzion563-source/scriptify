@@ -12,6 +12,7 @@ import Turnstile from "react-turnstile";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { Upload, X, Users, Loader2 } from "lucide-react";
 import { ScriptCard } from "@scriptify/ui";
 import { apiFetch, getApiUrl } from "@/lib/api";
@@ -690,7 +691,7 @@ export default function PublishForm() {
                   lineHeight: 1.6,
                 }}
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                   {description || "*No description*"}
                 </ReactMarkdown>
               </div>

@@ -126,10 +126,15 @@ router.delete("/:id", authenticateToken, async (req: Request, res: Response): Pr
       return;
     }
 
-    await prisma.comment.update({
+    const { count } = await prisma.comment.updateMany({
       where: { id: commentId },
       data: { body: "", isDeleted: true, isEdited: false },
     });
+
+    if (count === 0) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
 
     res.json({ ok: true });
   } catch {

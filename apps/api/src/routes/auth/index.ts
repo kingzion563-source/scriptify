@@ -82,10 +82,7 @@ router.post(
       });
       if (existing) {
         res.status(409).json({
-          error:
-            existing.email === email
-              ? "Email already in use"
-              : "Username already taken",
+          error: "An account with those credentials already exists.",
         });
         return;
       }
@@ -97,7 +94,7 @@ router.post(
           username: username.toLowerCase(),
           email: email,
           passwordHash,
-          isVerified: true,
+          isVerified: false,
         },
       });
 

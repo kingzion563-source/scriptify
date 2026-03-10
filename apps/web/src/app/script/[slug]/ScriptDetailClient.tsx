@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { formatDistanceToNow } from "date-fns";
 import {
   Bookmark,
@@ -799,6 +800,7 @@ export function ScriptDetailClient({ script }: { script: ScriptDetail }) {
                 >
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSanitize]}
                     components={{
                       h1: ({ children }) => (
                         <h2
