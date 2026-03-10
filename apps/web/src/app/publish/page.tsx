@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import RequireAuth from "@/components/RequireAuth";
 import PublishForm from "./PublishForm";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function PublishPage() {
-  return <PublishForm />;
+  return (
+    <RequireAuth>
+      <PublishForm />
+    </RequireAuth>
+  );
 }
