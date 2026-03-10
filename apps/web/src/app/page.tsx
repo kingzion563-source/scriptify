@@ -86,6 +86,8 @@ function ScriptCard({ hit }: { hit: ScriptHit }) {
           <img
             src={hit.coverUrl}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]"
             style={{ transitionDuration: "300ms" }}
           />
